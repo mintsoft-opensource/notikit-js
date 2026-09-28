@@ -1,4 +1,4 @@
-import { NotikitClient, logIdFromPayload, type NotikitConfig } from "@notikit/core";
+import { NotikitClient, logIdFromPayload, type NotikitConfig } from "@mint-soft/notikit-core";
 
 /** `@react-native-firebase/messaging` 의 RemoteMessage 중 우리가 읽는 부분만 */
 export type NotikitRemoteMessage = { data?: Record<string, string | object> | null };
@@ -92,4 +92,4 @@ export class NotikitReactNative {
   }
 }
 
-export * from "@notikit/core";
+export * from "@mint-soft/notikit-core";

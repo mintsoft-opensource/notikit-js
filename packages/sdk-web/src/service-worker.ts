@@ -11,7 +11,7 @@
  * 클릭 보고에 쓸 FCM 토큰은 메인 스레드가 IndexedDB 에 남긴 것을 읽는다 —
  * 워커에서는 getToken 을 부를 수 없다.
  */
-import { RECEIPT_DEDUPE_SIZE } from "@notikit/core";
+import { RECEIPT_DEDUPE_SIZE } from "@mint-soft/notikit-core";
 
 /** 워커가 불러올 firebase compat SDK 기본 버전. 앱의 firebase 메이저와 맞추는 것을 권장. */
 export const DEFAULT_FIREBASE_SDK_VERSION = "12.0.0";

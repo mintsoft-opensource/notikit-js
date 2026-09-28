@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { NotikitWeb } from "./index";
-import { NotikitClient, NotikitError } from "@notikit/core";
+import { NotikitClient, NotikitError } from "@mint-soft/notikit-core";
 
 function mockFetch(response: unknown, ok = true, status = 200) {
   return vi.fn(async () =>

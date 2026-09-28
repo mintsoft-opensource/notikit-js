@@ -1,7 +1,7 @@
 {
-  "name": "@notikit/react-native",
+  "name": "@mint-soft/notikit-react-native",
   "version": "0.1.0",
-  "description": "Notikit React Native SDK — device registration + identity over @notikit/core",
+  "description": "Notikit React Native SDK — device registration + identity over @mint-soft/notikit-core",
   "license": "Apache-2.0",
   "homepage": "https://notikit.mint-soft.com",
   "type": "module",
@@ -27,7 +27,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@notikit/core": "workspace:*"
+    "@mint-soft/notikit-core": "workspace:*"
   },
   "peerDependencies": {
     "react-native": ">=0.72"

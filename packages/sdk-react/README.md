@@ -1,16 +1,16 @@
-# @notikit/react
+# @mint-soft/notikit-react
 
 > Notikit React SDK — Web SDK 위의 hooks (Next.js 호환).
 
 ## 설치
 ```bash
-npm install @notikit/react
+npm install @mint-soft/notikit-react
 ```
 
 ## 사용
 ```tsx
 "use client";
-import { NotikitProvider, usePushRegistration } from "@notikit/react";
+import { NotikitProvider, usePushRegistration } from "@mint-soft/notikit-react";
 
 function PushButton() {
   const { status, register, error } = usePushRegistration();
@@ -45,7 +45,7 @@ export default function App() {
 | `useNotikit()` | `NotikitWeb` 인스턴스 |
 | `usePushRegistration()` | `{ status, token, error, register }` |
 
-`config` 는 `@notikit/web-sdk` 의 `NotikitWebConfig` 입니다. 이전 이름 `externalId`(`external_id`)도 그대로
+`config` 는 `@mint-soft/notikit-web` 의 `NotikitWebConfig` 입니다. 이전 이름 `externalId`(`external_id`)도 그대로
 동작하지만 deprecated 입니다 — `userId` 를 쓰세요.
 
 ## 라이선스

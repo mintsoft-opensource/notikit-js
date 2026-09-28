@@ -1,10 +1,10 @@
 /**
- * Notikit @notikit/core 실행 예제 (Node).
+ * Notikit @mint-soft/notikit-core 실행 예제 (Node).
  * 서버가 떠 있는 상태에서:  pnpm build && node examples/node-quickstart.mjs
  * 환경변수: NOTIKIT_BASE_URL, NOTIKIT_ADMIN_TOKEN
  */
 import { createHmac } from "node:crypto";
-import { NotikitClient } from "@notikit/core";
+import { NotikitClient } from "@mint-soft/notikit-core";
 
 const BASE = process.env.NOTIKIT_BASE_URL ?? "http://localhost:3000";
 const ADMIN = process.env.NOTIKIT_ADMIN_TOKEN ?? "change-me-admin-token";

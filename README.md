@@ -2,10 +2,10 @@
 
 | 패키지 | 용도 |
 |---|---|
-| [`@notikit/core`](packages/sdk-core) | 공통 API 클라이언트·타입 (browser / node / react-native) |
-| [`@notikit/web-sdk`](packages/sdk-web) | 브라우저 Web Push |
-| [`@notikit/react`](packages/sdk-react) | React / Next hooks |
-| [`@notikit/react-native`](packages/sdk-react-native) | React Native |
+| [`@mint-soft/notikit-core`](packages/sdk-core) | 공통 API 클라이언트·타입 (browser / node / react-native) |
+| [`@mint-soft/notikit-web`](packages/sdk-web) | 브라우저 Web Push |
+| [`@mint-soft/notikit-react`](packages/sdk-react) | React / Next hooks |
+| [`@mint-soft/notikit-react-native`](packages/sdk-react-native) | React Native |
 
 다른 플랫폼: [iOS](https://github.com/mintsoft-opensource/notikit-ios) · [Android](https://github.com/mintsoft-opensource/notikit-android) · [Flutter](https://github.com/mintsoft-opensource/notikit-flutter)
 
@@ -20,7 +20,7 @@ pnpm test
 실제 서버와의 계약 테스트는 서버가 떠 있을 때만 돈다:
 
 ```bash
-NOTIKIT_CONTRACT_URL=http://localhost:3000 NOTIKIT_CONTRACT_ADMIN_TOKEN=<ADMIN_TOKEN> pnpm --filter @notikit/core test
+NOTIKIT_CONTRACT_URL=http://localhost:3000 NOTIKIT_CONTRACT_ADMIN_TOKEN=<ADMIN_TOKEN> pnpm --filter @mint-soft/notikit-core test
 ```
 
 ## 라이선스

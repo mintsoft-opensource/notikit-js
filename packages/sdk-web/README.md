@@ -1,4 +1,4 @@
-# @notikit/web-sdk
+# @mint-soft/notikit-web
 
 > Notikit Web SDK — 브라우저 푸시 (FCM / Firebase Cloud Messaging).
 
@@ -7,7 +7,7 @@
 
 ## 설치
 ```bash
-npm install @notikit/web-sdk firebase
+npm install @mint-soft/notikit-web firebase
 ```
 
 `firebase` 는 peer dependency 입니다(선택). `getToken` 을 직접 넘기면 설치하지 않아도 됩니다.
@@ -17,7 +17,7 @@ npm install @notikit/web-sdk firebase
 `public/notikit-sw.js` 로 SDK 의 `NOTIKIT_SERVICE_WORKER` 문자열을 그대로 저장하세요.
 
 ```ts
-import { NOTIKIT_SERVICE_WORKER } from "@notikit/web-sdk";
+import { NOTIKIT_SERVICE_WORKER } from "@mint-soft/notikit-web";
 // 빌드 스크립트에서: fs.writeFileSync("public/notikit-sw.js", NOTIKIT_SERVICE_WORKER)
 ```
 
@@ -30,7 +30,7 @@ import { NOTIKIT_SERVICE_WORKER } from "@notikit/web-sdk";
 직접 초기화해야 백그라운드 메시지를 받습니다.
 
 ```ts
-import { NotikitWeb } from "@notikit/web-sdk";
+import { NotikitWeb } from "@mint-soft/notikit-web";
 
 const notikit = new NotikitWeb({
   baseUrl: "https://push.example.com",

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotikitProvider, useNotikit, usePushRegistration } from "./index";
-import { NotikitWeb } from "@notikit/web-sdk";
+import { NotikitWeb } from "@mint-soft/notikit-web";
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 

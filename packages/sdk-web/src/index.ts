@@ -1,4 +1,4 @@
-import { NotikitClient, NOTIKIT_LOG_ID_KEY, resolveUserId, type NotikitConfig } from "@notikit/core";
+import { NotikitClient, NOTIKIT_LOG_ID_KEY, resolveUserId, type NotikitConfig } from "@mint-soft/notikit-core";
 import { saveToken } from "./token-store.js";
 import { NOTIKIT_SW_MESSAGE_TYPE } from "./service-worker.js";
 
@@ -339,7 +339,7 @@ export class NotikitWeb {
   }
 }
 
-export * from "@notikit/core";
+export * from "@mint-soft/notikit-core";
 // 서비스워커 템플릿은 소비자가 /notikit-sw.js 로 호스팅해야 하는 산출물이다.
 // 배럴에서 내보내지 않으면 exports 맵이 하위 경로를 막아 접근할 방법이 없다.
 export * from "./service-worker.js";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NotikitWeb, type NotikitWebConfig } from "@notikit/web-sdk";
+import { NotikitWeb, type NotikitWebConfig } from "@mint-soft/notikit-web";
 
 const Ctx = React.createContext<NotikitWeb | null>(null);
 
@@ -68,4 +68,4 @@ export function usePushRegistration(): PushRegistrationState {
   return { status, token, error, register };
 }
 
-export * from "@notikit/core";
+export * from "@mint-soft/notikit-core";

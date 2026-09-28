@@ -13,6 +13,6 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "@notikit/core": "workspace:*"
+    "@mint-soft/notikit-core": "workspace:*"
   }
 }

@@ -8,7 +8,7 @@ importers:
 
   .:
     devDependencies:
-      '@notikit/core':
+      '@mint-soft/notikit-core':
         specifier: workspace:*
         version: link:packages/sdk-core
 
@@ -23,10 +23,10 @@ importers:
 
   packages/sdk-react:
     dependencies:
-      '@notikit/core':
+      '@mint-soft/notikit-core':
         specifier: workspace:*
         version: link:../sdk-core
-      '@notikit/web-sdk':
+      '@mint-soft/notikit-web':
         specifier: workspace:*
         version: link:../sdk-web
     devDependencies:
@@ -51,7 +51,7 @@ importers:
 
   packages/sdk-react-native:
     dependencies:
-      '@notikit/core':
+      '@mint-soft/notikit-core':
         specifier: workspace:*
         version: link:../sdk-core
       react-native:
@@ -67,7 +67,7 @@ importers:
 
   packages/sdk-web:
     dependencies:
-      '@notikit/core':
+      '@mint-soft/notikit-core':
         specifier: workspace:*
         version: link:../sdk-core
     devDependencies:

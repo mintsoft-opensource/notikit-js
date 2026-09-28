@@ -1,5 +1,5 @@
 {
-  "name": "@notikit/core",
+  "name": "@mint-soft/notikit-core",
   "version": "0.1.0",
   "description": "Notikit SDK core — typed API client (browser / node / react-native)",
   "license": "Apache-2.0",

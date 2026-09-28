@@ -1,5 +1,5 @@
 {
-  "name": "@notikit/web-sdk",
+  "name": "@mint-soft/notikit-web",
   "version": "0.1.0",
   "description": "Notikit Web SDK — browser push via FCM (Firebase Cloud Messaging)",
   "license": "Apache-2.0",
@@ -27,7 +27,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@notikit/core": "workspace:*"
+    "@mint-soft/notikit-core": "workspace:*"
   },
   "devDependencies": {
     "firebase": "^12.19.0",

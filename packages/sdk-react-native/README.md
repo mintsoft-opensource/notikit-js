@@ -1,16 +1,16 @@
-# @notikit/react-native
+# @mint-soft/notikit-react-native
 
-> Notikit React Native SDK — 디바이스 등록 + identity (`@notikit/core` 기반).
+> Notikit React Native SDK — 디바이스 등록 + identity (`@mint-soft/notikit-core` 기반).
 
 ## 설치
 ```bash
-npm install @notikit/react-native @react-native-firebase/messaging
+npm install @mint-soft/notikit-react-native @react-native-firebase/messaging
 ```
 
 ## 사용
 ```ts
 import messaging from "@react-native-firebase/messaging";
-import { NotikitReactNative } from "@notikit/react-native";
+import { NotikitReactNative } from "@mint-soft/notikit-react-native";
 
 const notikit = new NotikitReactNative({
   baseUrl: "https://push.example.com",

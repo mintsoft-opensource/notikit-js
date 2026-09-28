@@ -1,4 +1,4 @@
-# @notikit/core
+# @mint-soft/notikit-core
 
 > Notikit SDK 코어 — 타입 안전 API 클라이언트 (브라우저 / Node / React Native 공용).
 
@@ -6,15 +6,15 @@
 
 ## 설치
 ```bash
-npm install @notikit/core
+npm install @mint-soft/notikit-core
 # 또는
-pnpm add @notikit/core
-yarn add @notikit/core
+pnpm add @mint-soft/notikit-core
+yarn add @mint-soft/notikit-core
 ```
 
 ## 사용
 ```ts
-import { NotikitClient } from "@notikit/core";
+import { NotikitClient } from "@mint-soft/notikit-core";
 
 const notikit = new NotikitClient({
   baseUrl: "https://push.example.com",

@@ -1,5 +1,5 @@
 {
-  "name": "@notikit/react",
+  "name": "@mint-soft/notikit-react",
   "version": "0.1.0",
   "description": "Notikit React SDK — hooks over the web SDK (Next.js compatible)",
   "license": "Apache-2.0",
@@ -27,8 +27,8 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@notikit/core": "workspace:*",
-    "@notikit/web-sdk": "workspace:*"
+    "@mint-soft/notikit-core": "workspace:*",
+    "@mint-soft/notikit-web": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"
