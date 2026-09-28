@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Notikit SDK core — typed API client (browser / node / react-native)",
   "license": "Apache-2.0",
+  "homepage": "https://notikit.mint-soft.com",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

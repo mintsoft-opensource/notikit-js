@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "description": "Notikit React Native SDK — device registration + identity over @notikit/core",
   "license": "Apache-2.0",
+  "homepage": "https://notikit.mint-soft.com",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mintsoft-opensource/notikit-js.git",
@@ -18,9 +26,22 @@
     "test": "vitest run",
     "prepublishOnly": "pnpm run build"
   },
-  "dependencies": { "@notikit/core": "workspace:*" },
-  "peerDependencies": { "react-native": ">=0.72" },
-  "peerDependenciesMeta": { "react-native": { "optional": true } },
-  "devDependencies": { "typescript": "^5", "vitest": "^4.1.5" },
-  "publishConfig": { "access": "public" }
+  "dependencies": {
+    "@notikit/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.72"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

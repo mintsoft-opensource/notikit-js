@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Notikit Web SDK — browser push via FCM (Firebase Cloud Messaging)",
   "license": "Apache-2.0",
+  "homepage": "https://notikit.mint-soft.com",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

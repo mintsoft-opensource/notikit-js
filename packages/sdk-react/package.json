@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Notikit React SDK — hooks over the web SDK (Next.js compatible)",
   "license": "Apache-2.0",
+  "homepage": "https://notikit.mint-soft.com",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
