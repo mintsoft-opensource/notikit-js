@@ -10,7 +10,7 @@
   "files": ["dist"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/notikit/notikit.git",
+    "url": "git+https://github.com/mintsoft-opensource/notikit-js.git",
     "directory": "packages/sdk-react-native"
   },
   "scripts": {
