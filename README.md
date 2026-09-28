@@ -7,7 +7,7 @@
 | [`@mint-soft/notikit-react`](packages/sdk-react) | React / Next hooks |
 | [`@mint-soft/notikit-react-native`](packages/sdk-react-native) | React Native |
 
-다른 플랫폼: [iOS](https://github.com/mintsoft-opensource/notikit-ios) · [Android](https://github.com/mintsoft-opensource/notikit-android) · [Flutter](https://github.com/mintsoft-opensource/notikit-flutter)
+[소개](https://notikit.mint-soft.com) · [서버](https://github.com/mintsoft-opensource/notikit) · 다른 플랫폼: [iOS](https://github.com/mintsoft-opensource/notikit-ios) · [Android](https://github.com/mintsoft-opensource/notikit-android) · [Flutter](https://github.com/mintsoft-opensource/notikit-flutter)
 
 ## 개발
 
