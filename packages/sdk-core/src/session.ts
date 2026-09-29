@@ -44,7 +44,8 @@ interface QueuedClick {
   at: number;
   /**
    * 클릭 당시 로그인해 있던 유저. 서버는 flush 시점의 바인딩으로 유저를 해석하므로,
-   * 그 사이 계정이 바뀌었으면 이 클릭은 다음 사람에게 귀속된다 — 그래서 폐기한다.
+   * 그 사이 계정이 바뀌었으면 이 클릭은 다음 사람에게 귀속된다 — 그래서 유저가 다시
+   * 같아질 때까지(또는 TTL 까지) 보내지 않고 남겨 둔다.
    * 비로그인 상태의 클릭은 undefined.
    */
   userId?: string;
@@ -72,6 +73,11 @@ function safeParse<T>(raw: string | null): T | null {
   } catch {
     return null; // 손상된 값은 조용히 버린다 — 저장소 파손이 SDK 를 죽이면 안 된다
   }
+}
+
+function parsePendingUnbind(raw: string | null): PendingUnbind | null {
+  const v = safeParse<PendingUnbind>(raw);
+  return v && typeof v === "object" && typeof v.token === "string" && v.token ? v : null;
 }
 
 /**
@@ -146,10 +152,25 @@ export class NotikitSession {
    * 서버에서 기존 기기 행을 갱신하고, **밀린 클릭의 토큰도 함께 바꾼다**. 큐는
    * 클릭 당시 토큰을 들고 있어서, 교체 후 그대로 보내면 서버가 기기를 못 찾아
    * 404 를 주고 4xx 정책에 걸려 전부 버려진다.
+   *
+   * 서버는 교체하지 못해도 202 `{ rotated: false }` 로 답한다(모르는 옛 토큰·증명 실패·
+   * 충돌 — 오라클이 되지 않으려고 이유를 가르지 않는다). 그걸 성공으로 보면 새 토큰은
+   * 어디에도 등록되지 않아 이 기기로 발송이 끊긴다. 그래서 새 토큰을 현재 유저로 직접
+   * 등록한다. 그것마저 실패하면 던지고 **아무것도 옮기지 않는다** — 다음 교체 시도가
+   * 같은 옛 토큰에서 다시 시작할 수 있게.
    */
   async rotateToken(oldToken: string, newToken: string): Promise<void> {
+    if (oldToken === newToken) return;
     const user = await this.getUser();
-    await this.client.rotateToken(oldToken, newToken, user?.identityHash);
+    const { rotated } = await this.client.rotateToken(oldToken, newToken, user?.identityHash);
+    if (rotated !== true) {
+      await this.client.registerDevice({
+        token: newToken,
+        platform: this.platform,
+        userId: user?.userId,
+        identityHash: user?.identityHash,
+      });
+    }
 
     // 큐의 read-modify-write 는 반드시 serialize 안에서 해야 한다. 밖에서 하면
     // 읽은 뒤 쓰기 전에 들어온 클릭이 이 스냅샷에 덮여 사라진다.
@@ -159,6 +180,16 @@ export class NotikitSession {
       const moved = queue.map((c) => (c.token === oldToken ? { ...c, token: newToken } : c));
       await this.storage.setItem(QUEUE_KEY, JSON.stringify(moved));
     });
+
+    // 밀린 언바인딩은 **제자리 교체됐을 때만** 따라간다 — 행이 새 토큰을 들고 있으니
+    // 옛 토큰으로 해제하면 서버가 기기를 못 찾는다. 재등록 경로에서는 옛 행이 이전
+    // 바인딩을 그대로 들고 있으므로 해제 대상은 여전히 옛 토큰이다.
+    if (rotated === true) {
+      const pending = parsePendingUnbind(await this.storage.getItem(UNBIND_KEY));
+      if (pending?.token === oldToken) {
+        await this.storage.setItem(UNBIND_KEY, JSON.stringify({ ...pending, token: newToken }));
+      }
+    }
   }
 
   /**
@@ -245,11 +276,17 @@ export class NotikitSession {
 
     for (const c of queue) {
       const key = `${c.logId}|${c.token}`;
-      // 만료됐거나, 클릭 당시 유저와 지금 유저가 다르면 보내지 않고 버린다
-      if (Date.now() - c.at >= QUEUE_TTL_MS || resolveUserId(c) !== current) {
+      // 오래된 클릭은 버린다
+      if (Date.now() - c.at >= QUEUE_TTL_MS) {
         done.add(key);
         continue;
       }
+      // 클릭 당시 유저와 지금 유저가 다르면 지금 보내지 않는다 — 서버는 flush 시점의
+      // 바인딩으로 유저를 해석하므로 다음 사람에게 귀속된다. 다만 **버리지도 않는다**.
+      // 비로그인 상태의 탭이 오프라인으로 큐에 남았다가 로그인하면 여기서 어긋나는데,
+      // 폐기하면 그 클릭이 영영 사라진다(로그인 유도 푸시가 정확히 이 경로를 밟는다).
+      // TTL 이 수명을 제한한다.
+      if (resolveUserId(c) !== current) continue;
       try {
         await this.client.reportClick({ logId: c.logId, token: c.token, destination: c.destination });
         done.add(key);
@@ -274,13 +311,18 @@ export class NotikitSession {
 
   /** 실패해 남아 있던 언바인딩 재시도 — 성공할 때까지 서버 바인딩이 이전 유저로 남는다 */
   private async retryPendingUnbind(): Promise<void> {
-    const pending = safeParse<PendingUnbind>(await this.storage.getItem(UNBIND_KEY));
-    if (!pending?.token) return;
+    const pending = parsePendingUnbind(await this.storage.getItem(UNBIND_KEY));
+    if (!pending) return;
     try {
       await this.client.unbindDevice(pending.token, this.platform, pending.identityHash);
       await this.storage.removeItem(UNBIND_KEY);
-    } catch {
-      /* 다음 flush 에서 재시도 */
+    } catch (e) {
+      // 4xx 는 다시 보내도 같은 답이다(증명 실패 403 등) — 영원히 두드리지 않고 버린다.
+      // 오프라인·5xx·429 만 남겨 다음 flush 에서 재시도한다.
+      const status = (e as { status?: number })?.status;
+      if (typeof status === "number" && status >= 400 && status < 500 && status !== 429) {
+        await this.storage.removeItem(UNBIND_KEY);
+      }
     }
   }
 

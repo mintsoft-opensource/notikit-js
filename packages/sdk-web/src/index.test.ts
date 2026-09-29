@@ -241,6 +241,68 @@ describe("NotikitWeb.identify", () => {
   });
 });
 
+function seqFetch(...responses: [unknown, number][]) {
+  let i = 0;
+  return vi.fn(async () => {
+    const [body, status] = responses[Math.min(i++, responses.length - 1)];
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  }) as unknown as typeof fetch;
+}
+
+describe("NotikitWeb.rotateToken", () => {
+  const calls = (f: typeof fetch) =>
+    (f as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([url, init]) => ({
+      url: url as string,
+      body: JSON.parse((init as RequestInit).body as string),
+    }));
+
+  it("서버가 교체하지 못하면(rotated:false) 새 토큰을 유저와 함께 등록한다", async () => {
+    installBrowserEnv();
+    const fetch = seqFetch(
+      [{ success: true, data: { rotated: false }, error: null }, 202],
+      [{ success: true, data: { device: { id: "d2" } }, error: null }, 201],
+      [{ success: true, data: { recorded: true, attributed: false }, error: null }, 202]
+    );
+    const notikit = new NotikitWeb({ ...base, userId: "u1", identityHash: "h1", fetch });
+
+    await notikit.rotateToken("old", "new");
+    await notikit.trackConversion("purchase");
+
+    const [rotate, register, conversion] = calls(fetch);
+    expect(rotate.url).toBe("https://push.test/api/v1/devices/rotate");
+    expect(register.url).toBe("https://push.test/api/v1/devices");
+    expect(register.body).toMatchObject({ token: "new", platform: "web", user_id: "u1", identity_hash: "h1" });
+    expect(conversion.body.token).toBe("new");
+  });
+
+  it("교체도 재등록도 실패하면 던지고 옛 토큰을 유지한다", async () => {
+    installBrowserEnv();
+    const fetch = seqFetch(
+      [{ success: true, data: { device: { id: "d1" } }, error: null }, 201],
+      [{ success: true, data: { rotated: false }, error: null }, 202],
+      [{ success: false, data: null, error: "identity_hash invalid" }, 403],
+      [{ success: true, data: { recorded: true, attributed: false }, error: null }, 202]
+    );
+    const notikit = new NotikitWeb({ ...base, userId: "u1", fetch });
+    await notikit.register();
+
+    await expect(notikit.rotateToken(FCM_TOKEN, "new")).rejects.toBeInstanceOf(NotikitError);
+    await notikit.trackConversion("purchase");
+
+    expect(calls(fetch)[3].body.token).toBe(FCM_TOKEN);
+  });
+
+  it("교체되면 재등록하지 않는다", async () => {
+    installBrowserEnv();
+    const fetch = mockFetch({ success: true, data: { rotated: true, device_id: "d1" }, error: null }, true, 202);
+    const notikit = new NotikitWeb({ ...base, fetch });
+
+    await notikit.rotateToken("old", "new");
+
+    expect(calls(fetch).map((c) => c.url)).toEqual(["https://push.test/api/v1/devices/rotate"]);
+  });
+});
+
 describe("NotikitWeb.core", () => {
   it("exposes the underlying core client for advanced calls", () => {
     const notikit = new NotikitWeb({ ...base, fetch: okFetch() });

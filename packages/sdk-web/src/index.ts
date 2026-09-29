@@ -1,6 +1,6 @@
-import { NotikitClient, NOTIKIT_LOG_ID_KEY, resolveUserId, type NotikitConfig } from "@mint-soft/notikit-core";
+import { NotikitClient, NOTIKIT_LOG_ID_KEY, readPushData, resolveUserId, type NotikitConfig } from "@mint-soft/notikit-core";
 import { saveToken } from "./token-store.js";
-import { NOTIKIT_SW_MESSAGE_TYPE } from "./service-worker.js";
+import { MAX_NOTIFICATION_ACTIONS, NOTIKIT_SW_MESSAGE_TYPE } from "./service-worker.js";
 
 /** 워커용 토큰 저장을 기다려 주는 최대 시간 */
 const PERSIST_TIMEOUT_MS = 1000;
@@ -110,7 +110,7 @@ export class NotikitWeb {
 
     this.lastToken = token;
     this.listenWorker();
-    await this.listenForeground();
+    await this.listenForeground(reg);
 
     await this.client.registerDevice({
       token,
@@ -133,40 +133,60 @@ export class NotikitWeb {
    * 기본 동작은 워커와 같은 모양의 알림을 띄우고, 누르면 딥링크로 이동시키며 클릭을
    * 보고하는 것이다. 화면 안에서 직접 처리하려면 `onForegroundMessage` 를 넘긴다.
    */
-  private async listenForeground(): Promise<void> {
+  private async listenForeground(reg: ServiceWorkerRegistration): Promise<void> {
     if (this.unsubscribeForeground) return;
     try {
-      const [{ getApps, getApp }, { getMessaging, onMessage }] = await Promise.all([
+      const [{ initializeApp, getApps }, { getMessaging, isSupported, onMessage }] = await Promise.all([
         import("firebase/app"),
         import("firebase/messaging"),
       ]);
-      const app = getApps().length ? getApp() : null;
-      if (!app) return;
+      // 지원하지 않는 환경에서 getMessaging 은 던지지 않고 **처리되지 않은 거부**를 남긴다 — 먼저 거른다
+      if (!(await isSupported())) return;
+      // 토큰을 받을 때와 **같은 앱**을 찾는다. SDK 가 만든 앱은 이름("notikit")이 붙어 있어
+      // getApp() 으로는 찾지 못하고, 그러면 기본 경로에서 포그라운드 수신이 영영 붙지 않는다.
+      const app = this.firebaseApp(getApps(), initializeApp);
 
       this.unsubscribeForeground = onMessage(getMessaging(app), (payload) => {
         const data = (payload.data ?? {}) as Record<string, string>;
         const custom = this.config.onForegroundMessage;
         if (custom) return custom(data);
-
-        const logId = data[NOTIKIT_LOG_ID_KEY];
-        const destination = data.deep_link || "/";
-        // 서버는 웹에 data-only 로 보내므로 제목·본문도 data 에 있다
-        const n = new Notification(data.title || "알림", { body: data.body || "", icon: data.icon });
-        n.onclick = () => {
-          n.close();
-          if (logId) void this.reportForegroundClick(logId, destination);
-          window.open(destination, "_blank");
-        };
+        void this.showForegroundNotification(reg, data).catch(() => {});
       });
     } catch {
       // 포그라운드 수신 실패가 등록을 막지 않는다 — 백그라운드는 워커가 계속 담당한다
     }
   }
 
-  private async reportForegroundClick(logId: string, destination: string): Promise<void> {
-    const token = this.lastToken;
-    if (!token) return;
-    await this.client.reportClick({ logId, token, destination }).catch(() => {});
+  /**
+   * 워커와 같은 모양의 알림을 띄운다.
+   *
+   * `new Notification()` 은 쓰지 않는다 — 안드로이드 크롬은 페이지에서의 생성자를
+   * Illegal constructor 로 막는다. 워커 등록으로 띄우면 클릭도 워커의 notificationclick 이
+   * 받아 클릭 보고·딥링크 이동을 백그라운드 알림과 똑같이 처리한다.
+   */
+  private async showForegroundNotification(reg: ServiceWorkerRegistration, data: Record<string, string>): Promise<void> {
+    // 서버는 웹에 data-only 로 보내므로 제목·본문도 data 에 있다
+    const title = data.title || "";
+    const body = data.body || "";
+    // 무음 푸시는 제목·본문이 아예 없다 — 워커와 마찬가지로 그리지 않는다
+    if (!title && !body) return;
+
+    const { actions } = readPushData(data);
+    const shown = actions.slice(0, MAX_NOTIFICATION_ACTIONS);
+    const links: Record<string, string> = {};
+    for (const a of shown) if (a.deepLink) links[a.id] = a.deepLink;
+
+    const options: NotificationOptions & { actions?: { action: string; title: string }[] } = {
+      body,
+      icon: data.icon,
+      data: {
+        deep_link: data.deep_link || "/",
+        notikit_action_links: links,
+        notikit_log_id: data[NOTIKIT_LOG_ID_KEY] || null,
+      },
+    };
+    if (shown.length) options.actions = shown.map((a) => ({ action: a.id, title: a.title }));
+    await reg.showNotification(title || "알림", options);
   }
 
   /**
@@ -205,7 +225,21 @@ export class NotikitWeb {
    * 새 토큰으로 register 를 다시 부르면 행이 하나 더 생겨 중복 발송된다.
    */
   async rotateToken(oldToken: string, newToken: string): Promise<void> {
-    await this.client.rotateToken(oldToken, newToken, this.config.identityHash);
+    if (oldToken === newToken) return;
+    const { rotated } = await this.client.rotateToken(oldToken, newToken, this.config.identityHash);
+    // 서버는 교체하지 못해도 202 로 답한다(모르는 옛 토큰·증명 실패·충돌 — 오라클 방지).
+    // 그대로 넘기면 새 토큰은 어디에도 등록되지 않아 이 기기로 발송이 끊긴다.
+    // 새 토큰을 직접 등록하고, 그것마저 실패하면 던져서 저장 상태를 옛 토큰에 둔다.
+    if (rotated !== true) {
+      await this.client.registerDevice({
+        token: newToken,
+        platform: "web",
+        userId: resolveUserId(this.config),
+        identityHash: this.config.identityHash,
+        locale: typeof navigator !== "undefined" ? navigator.language : undefined,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+    }
     await this.persistToken(newToken);
     this.lastToken = newToken;
   }

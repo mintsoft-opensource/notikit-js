@@ -89,9 +89,15 @@ if (saved && current && saved !== current) {
 localStorage.setItem("fcm_token", current);
 ```
 
+서버가 옛 토큰을 찾지 못하거나 증명이 맞지 않아 교체하지 못하면(`rotated: false`), SDK 가 새 토큰을
+현재 `userId`·`identityHash` 로 **직접 등록**합니다. 그것마저 실패하면 던지므로 저장한 토큰을
+갱신하지 말고 다음에 다시 시도하세요(위 예제는 던지면 `setItem` 까지 가지 않습니다).
+
 ## 클릭 추적
 
-워커가 `notificationclick` 에서 자동으로 보고합니다. 보고에 쓸 FCM 토큰은 등록 시점에
+워커가 `notificationclick` 에서 자동으로 보고합니다. 탭이 보이는 상태(포그라운드)에서 온 푸시도
+`onForegroundMessage` 를 넘기지 않았다면 SDK 가 **서비스워커 등록으로** 같은 모양의 알림을 띄우므로
+클릭은 같은 경로로 보고됩니다(무음 푸시는 띄우지 않습니다). 보고에 쓸 FCM 토큰은 등록 시점에
 IndexedDB 에 저장된 값을 읽습니다 — 워커에서는 `getToken` 을 부를 수 없기 때문입니다.
 
 ## 수신(도달) 추적

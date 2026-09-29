@@ -269,7 +269,8 @@ describe("NotikitSession", () => {
     );
     const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: (async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) })) as unknown as typeof fetch });
     expect(await new NotikitSession(client, storage, "android").flush()).toBe(1);
-    expect(await storage.getItem("notikit.clickQueue")).toBeNull();
+    // 다른 유저의 클릭은 보내지 않고 남긴다(유저가 다시 같아지거나 TTL 까지)
+    expect(JSON.parse((await storage.getItem("notikit.clickQueue"))!).map((c: { logId: string }) => c.logId)).toEqual(["other"]);
   });
 
   it("logout clears the user and unbinds the device", async () => {
@@ -513,5 +514,124 @@ describe("ReceiptDedupe", () => {
     expect(d.has("a")).toBe(false);
     expect(d.has("b")).toBe(true);
     expect(d.has("c")).toBe(true);
+  });
+});
+
+describe("NotikitSession 토큰 교체·밀린 언바인딩", () => {
+  type Reply = { status: number; data?: unknown; error?: string } | "offline";
+  /** 경로별 응답표. 배열이면 호출마다 하나씩 소비하고 마지막 것을 반복한다. */
+  function routed(routes: Record<string, Reply | Reply[]>) {
+    const calls: { path: string; body: Record<string, unknown> }[] = [];
+    const used: Record<string, number> = {};
+    const fetchImpl = (async (url: string, init: { body: string }) => {
+      const path = new URL(url).pathname;
+      calls.push({ path, body: JSON.parse(init.body) });
+      const r = routes[path] ?? { status: 200, data: {} };
+      const list = Array.isArray(r) ? r : [r];
+      const i = used[path] = (used[path] ?? -1) + 1;
+      const reply = list[Math.min(i, list.length - 1)];
+      if (reply === "offline") throw new Error("offline");
+      const ok = reply.status < 400;
+      return {
+        ok,
+        status: reply.status,
+        json: async () => ({ success: ok, data: ok ? reply.data ?? {} : null, error: reply.error ?? null }),
+      };
+    }) as unknown as typeof fetch;
+    const storage = memoryStorage();
+    const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: fetchImpl });
+    return { calls, storage, session: new NotikitSession(client, storage, "android") };
+  }
+
+  const queued = (token: string) => JSON.stringify([{ logId: "log1", token, at: Date.now(), userId: "u1" }]);
+  const readQueue = async (storage: ReturnType<typeof memoryStorage>) =>
+    JSON.parse((await storage.getItem("notikit.clickQueue")) ?? "[]") as { token: string }[];
+
+  it("교체되면(rotated:true) 밀린 클릭과 밀린 언바인딩을 새 토큰으로 옮긴다", async () => {
+    const { calls, storage, session } = routed({ "/api/v1/devices/rotate": { status: 202, data: { rotated: true } } });
+    await storage.setItem("notikit.clickQueue", queued("old"));
+    await storage.setItem("notikit.pendingUnbind", JSON.stringify({ token: "old", identityHash: "h0", at: 1 }));
+
+    await session.rotateToken("old", "new");
+
+    expect(calls.map((c) => c.path)).toEqual(["/api/v1/devices/rotate"]);
+    expect((await readQueue(storage))[0].token).toBe("new");
+    expect(JSON.parse((await storage.getItem("notikit.pendingUnbind"))!)).toEqual({ token: "new", identityHash: "h0", at: 1 });
+  });
+
+  it("교체되지 않으면(rotated:false) 새 토큰을 현재 유저로 등록하고 클릭을 옮긴다", async () => {
+    const { calls, storage, session } = routed({
+      "/api/v1/devices/rotate": { status: 202, data: { rotated: false } },
+      "/api/v1/devices": { status: 201, data: { device: {} } },
+    });
+    await session.login({ userId: "u1", identityHash: "h1" }, "old");
+    await storage.setItem("notikit.clickQueue", queued("old"));
+
+    await session.rotateToken("old", "new");
+
+    const register = calls.filter((c) => c.path === "/api/v1/devices").at(-1);
+    expect(register?.body).toMatchObject({ token: "new", platform: "android", user_id: "u1", identity_hash: "h1" });
+    expect((await readQueue(storage))[0].token).toBe("new");
+  });
+
+  it("재등록 경로에서는 밀린 언바인딩을 옛 토큰에 남긴다 — 옛 행이 이전 바인딩을 들고 있다", async () => {
+    const { storage, session } = routed({ "/api/v1/devices/rotate": { status: 202, data: { rotated: false } } });
+    await storage.setItem("notikit.pendingUnbind", JSON.stringify({ token: "old", identityHash: "h0", at: 1 }));
+
+    await session.rotateToken("old", "new");
+
+    expect(JSON.parse((await storage.getItem("notikit.pendingUnbind"))!).token).toBe("old");
+  });
+
+  it("교체도 재등록도 실패하면 던지고 아무것도 옮기지 않는다", async () => {
+    const { storage, session } = routed({
+      "/api/v1/devices/rotate": { status: 202, data: { rotated: false } },
+      "/api/v1/devices": { status: 403, error: "identity_hash invalid" },
+    });
+    await storage.setItem("notikit.clickQueue", queued("old"));
+
+    await expect(session.rotateToken("old", "new")).rejects.toBeInstanceOf(NotikitError);
+    expect((await readQueue(storage))[0].token).toBe("old");
+  });
+
+  it("같은 토큰이면 요청하지 않는다", async () => {
+    const { calls, session } = routed({});
+    await session.rotateToken("same", "same");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("재시도해도 같은 4xx 인 밀린 언바인딩은 버린다", async () => {
+    const { calls, storage, session } = routed({ "/api/v1/devices": { status: 403, error: "identity_hash invalid" } });
+    await storage.setItem("notikit.pendingUnbind", JSON.stringify({ token: "tok", at: 1 }));
+
+    await session.flush();
+    await session.flush();
+
+    expect(await storage.getItem("notikit.pendingUnbind")).toBeNull();
+    expect(calls.filter((c) => c.path === "/api/v1/devices")).toHaveLength(1);
+  });
+
+  it("5xx·429·오프라인이면 밀린 언바인딩을 남겨 다음에 재시도한다", async () => {
+    const { storage, session } = routed({ "/api/v1/devices": [{ status: 500 }, { status: 429 }, "offline", { status: 201 }] });
+    await storage.setItem("notikit.pendingUnbind", JSON.stringify({ token: "tok", at: 1 }));
+
+    for (let i = 0; i < 3; i++) {
+      await session.flush();
+      expect(await storage.getItem("notikit.pendingUnbind")).not.toBeNull();
+    }
+    await session.flush();
+    expect(await storage.getItem("notikit.pendingUnbind")).toBeNull();
+  });
+
+  it("클릭 당시 유저와 지금 유저가 다르면 보내지 않되 버리지도 않는다", async () => {
+    // 비로그인 상태의 탭이 오프라인으로 남았다가 로그인하면 유저가 어긋난다 —
+    // 버리면 로그인 유도 푸시의 클릭이 영영 사라진다
+    const { calls, storage, session } = routed({});
+    await storage.setItem("notikit.clickQueue", JSON.stringify([{ logId: "log1", token: "tok", at: Date.now() }]));
+    await session.login({ userId: "u1" }, "tok");
+
+    expect(await session.flush()).toBe(0);
+    expect(calls.some((c) => c.path === "/api/v1/messages/click")).toBe(false);
+    expect(await readQueue(storage)).toHaveLength(1);
   });
 });

@@ -180,6 +180,41 @@ describe("수신 보고", () => {
     await expect(rn.backgroundMessageHandler("fcm-1")({ data: { notikit_log_id: "log-1" } })).resolves.toBeUndefined();
   });
 
+  it("토큰 대신 비동기 getter 를 받는다 — index.js 최상단에서는 토큰을 아직 모른다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    const getToken = vi.fn(async () => "fcm-async");
+    await rn.backgroundMessageHandler(getToken)({ data: { notikit_log_id: "log-2" } });
+    expect(lastCall(fetch).body).toEqual({ log_id: "log-2", token: "fcm-async" });
+  });
+
+  it("동기 getter 도 받는다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await rn.backgroundMessageHandler(() => "fcm-sync")({ data: { notikit_log_id: "log-3" } });
+    expect(lastCall(fetch).body).toEqual({ log_id: "log-3", token: "fcm-sync" });
+  });
+
+  it("notikit 발송이 아니면 getter 도 부르지 않는다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    const getToken = vi.fn(async () => "fcm-1");
+    await rn.backgroundMessageHandler(getToken)({ data: { title: "남의 푸시" } });
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it("getter 가 토큰을 못 주거나 실패해도 throw 하지 않고 보내지 않는다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await expect(rn.backgroundMessageHandler(async () => null)({ data: { notikit_log_id: "log-4" } })).resolves.toBeUndefined();
+    await expect(
+      rn.backgroundMessageHandler(async () => {
+        throw new Error("no token");
+      })({ data: { notikit_log_id: "log-5" } })
+    ).resolves.toBeUndefined();
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+
   it("재배달된 같은 발송은 요청을 다시 내보내지 않는다", async () => {
     const fetch = mockFetch(okEnvelope({ recorded: true }));
     const rn = new NotikitReactNative({ ...base, fetch });

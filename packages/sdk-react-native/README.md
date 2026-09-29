@@ -9,6 +9,7 @@ npm install @mint-soft/notikit-react-native @react-native-firebase/messaging
 
 ## 사용
 ```ts
+import { Platform } from "react-native";
 import messaging from "@react-native-firebase/messaging";
 import { NotikitReactNative } from "@mint-soft/notikit-react-native";
 
@@ -28,17 +29,23 @@ await notikit.register(token, Platform.OS === "ios" ? "ios" : "android", "user-1
 발송 성공(FCM 접수)은 기기가 꺼져 있어도, 앱이 지워져 있어도 성공합니다 — 도달이 아닙니다.
 앱이 수신을 보고하지 않으면 콘솔의 "도달" 칸은 계속 비어 있습니다.
 
-백그라운드 핸들러에 그대로 꽂으세요. **앱 진입점(`index.js`)에서 등록해야** 앱이 꺼져
-있을 때도 불립니다.
+백그라운드 핸들러에 그대로 꽂으세요. **앱 진입점(`index.js`)에서 동기적으로 등록해야** 앱이
+꺼져 있을 때도 불립니다. 그 시점에는 토큰을 아직 모르므로 토큰 대신 **토큰을 돌려주는 함수**를
+넘깁니다 — 메시지가 올 때마다 불러서 교체된 토큰도 따라갑니다.
 
 ```ts
 // index.js — AppRegistry 등록 전
-messaging().setBackgroundMessageHandler(notikit.backgroundMessageHandler(token));
+import messaging from "@react-native-firebase/messaging";
+import { NotikitReactNative, readPushData } from "@mint-soft/notikit-react-native";
+
+const notikit = new NotikitReactNative({ baseUrl: "https://push.example.com", apiKey: "nk_xxx" });
+
+messaging().setBackgroundMessageHandler(notikit.backgroundMessageHandler(() => messaging().getToken()));
 
 // 포그라운드에서도 같은 발송이 도달입니다
 messaging().onMessage(async (m) => {
   const { logId } = readPushData(m.data);
-  if (logId) await notikit.reportReceived(token, logId);
+  if (logId) await notikit.reportReceived(await messaging().getToken(), logId);
 });
 ```
 
@@ -54,7 +61,7 @@ messaging().onMessage(async (m) => {
 | `identify(userId, attributes?, name?)` | 유저 식별 |
 | `subscribe(topic, fcmToken)` | 토픽 구독 |
 | `reportReceived(fcmToken, messageId)` | 수신(도달) 보고. 이미 보고한 발송이면 `null` |
-| `backgroundMessageHandler(fcmToken)` | `setBackgroundMessageHandler` 에 넣을 핸들러 |
+| `backgroundMessageHandler(fcmToken \| () => token)` | `setBackgroundMessageHandler` 에 넣을 핸들러. 토큰 문자열 또는 (비동기) getter |
 
 `userId` 는 고객 서비스의 유저 id 이며 서버에 `user_id` 로 보냅니다. 위치 인자라 기존 호출은 그대로 동작합니다.
 `core` 의 입력 객체에서도 이전 이름 `externalId`(`external_id`)가 그대로 동작하지만 deprecated 입니다.

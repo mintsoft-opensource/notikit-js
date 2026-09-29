@@ -3,6 +3,9 @@ import { NotikitClient, logIdFromPayload, type NotikitConfig } from "@mint-soft/
 /** `@react-native-firebase/messaging` 의 RemoteMessage 중 우리가 읽는 부분만 */
 export type NotikitRemoteMessage = { data?: Record<string, string | object> | null };
 
+/** FCM 토큰 또는 그것을 돌려주는 함수(동기·비동기). 토큰을 얻지 못하면 null. */
+export type NotikitTokenSource = string | (() => string | null | Promise<string | null>);
+
 export interface NotikitRNConfig extends Omit<NotikitConfig, "apiSecret"> {
   /** user id 바인딩 시 identity 검증 해시(고객 서버 계산) */
   identityHash?: string;
@@ -57,22 +60,28 @@ export class NotikitReactNative {
   /**
    * `messaging().setBackgroundMessageHandler(...)` 에 그대로 넣는 핸들러.
    *
+   * 백그라운드 핸들러는 `index.js` 최상단에서 **동기적으로** 등록해야 하는데, 그 시점에는
+   * 토큰을 아직 모른다(`getToken()` 은 비동기). 그래서 토큰 대신 **토큰을 돌려주는 함수**를
+   * 받는다 — 메시지가 올 때마다 부르므로 교체된 토큰도 따라간다. 문자열도 그대로 받는다.
+   *
    * ```ts
-   * messaging().setBackgroundMessageHandler(notikit.backgroundMessageHandler(token));
+   * messaging().setBackgroundMessageHandler(notikit.backgroundMessageHandler(() => messaging().getToken()));
    * ```
    *
    * **절대 throw 하지 않는다.** 백그라운드 핸들러가 거부된 Promise 를 돌려주면 안드로이드가
    * 헤드리스 작업을 실패로 적고, iOS 는 다음 백그라운드 실행 예산을 깎는다 — 수신 보고 한
-   * 건 때문에 앱의 푸시 처리 전체가 나빠지는 건 맞바꿀 값이 아니다.
+   * 건 때문에 앱의 푸시 처리 전체가 나빠지는 건 맞바꿀 값이 아니다. 토큰을 얻지 못해도 같다.
    *
-   * notikit 발송이 아니면(=`notikit_log_id` 없음) 아무것도 하지 않는다.
+   * notikit 발송이 아니면(=`notikit_log_id` 없음) 토큰도 묻지 않고 아무것도 하지 않는다.
    */
-  backgroundMessageHandler(fcmToken: string): (message: NotikitRemoteMessage) => Promise<void> {
+  backgroundMessageHandler(fcmToken: NotikitTokenSource): (message: NotikitRemoteMessage) => Promise<void> {
     return async (message) => {
       const logId = logIdFromPayload(message?.data);
       if (!logId) return;
       try {
-        await this.reportReceived(fcmToken, logId);
+        const token = typeof fcmToken === "function" ? await fcmToken() : fcmToken;
+        if (!token) return;
+        await this.reportReceived(token, logId);
       } catch {
         // 보고 실패는 삼킨다 — 위 주석 참조
       }

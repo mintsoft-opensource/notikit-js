@@ -86,6 +86,50 @@ describe("useNotikit", () => {
   });
 });
 
+describe("NotikitProvider 인라인 설정", () => {
+  const firebase = { apiKey: "AIza", projectId: "p", messagingSenderId: "1", appId: "1:1:web:a" };
+  const okFetch = () =>
+    vi.fn(async () => new Response(JSON.stringify({ success: true, data: { user: {} }, error: null }), { status: 200 }));
+
+  it("매 렌더마다 새로 만든 firebase 객체여도 값이 같으면 인스턴스를 유지한다", async () => {
+    // README 처럼 config 를 JSX 안에 인라인으로 쓰면 렌더마다 객체가 새로 생긴다.
+    // 인스턴스가 바뀌면 register() 로 받은 토큰(lastToken)을 잃는다.
+    const { result, rerender } = await renderHook(() => useNotikit(), true, { ...config, firebase: { ...firebase } } as typeof config);
+    const first = result.current;
+    await rerender({ ...config, firebase: { ...firebase } } as typeof config);
+    expect(result.current).toBe(first);
+  });
+
+  it("firebase 값이 바뀌면 새로 만든다", async () => {
+    const { result, rerender } = await renderHook(() => useNotikit(), true, { ...config, firebase } as typeof config);
+    const first = result.current;
+    await rerender({ ...config, firebase: { ...firebase, appId: "1:1:web:b" } } as typeof config);
+    expect(result.current).not.toBe(first);
+  });
+
+  it("인라인 함수가 매번 바뀌어도 인스턴스를 유지하고 최신 함수를 부른다", async () => {
+    const f1 = okFetch();
+    const f2 = okFetch();
+    const cfg = (fetch: typeof f1) =>
+      ({ ...config, firebase, fetch, getToken: async () => "t", onForegroundMessage: () => {} }) as unknown as typeof config;
+    const { result, rerender } = await renderHook(() => useNotikit(), true, cfg(f1));
+    const first = result.current;
+    await rerender(cfg(f2));
+    expect(result.current).toBe(first);
+
+    await result.current!.identify("u1");
+    expect(f1).not.toHaveBeenCalled();
+    expect(f2).toHaveBeenCalledTimes(1);
+  });
+
+  it("인스턴스를 바꿀 때 옛 인스턴스의 수신을 정리한다", async () => {
+    const unlisten = vi.spyOn(NotikitWeb.prototype, "unlisten");
+    const { rerender } = await renderHook(() => useNotikit());
+    await rerender({ ...config, apiKey: "nk_other" });
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("usePushRegistration", () => {
   it("starts as unsupported when Web Push is unavailable", async () => {
     vi.spyOn(NotikitWeb, "isSupported").mockReturnValue(false);
