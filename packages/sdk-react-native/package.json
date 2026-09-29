@@ -1,6 +1,6 @@
 {
   "name": "@mint-soft/notikit-react-native",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Notikit React Native SDK — device registration + identity over @mint-soft/notikit-core",
   "license": "Apache-2.0",
   "homepage": "https://notikit.mint-soft.com",
